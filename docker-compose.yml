@@ -1,0 +1,72 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: ticket-postgres
+
+    environment:
+      POSTGRES_DB: ticketdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+
+  ticket-service:
+    build:
+      context: ./ticket-service
+
+    container_name: ticket-service
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    environment:
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ticketdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      CHROMA_PATH: /app/chroma_db
+      CHROMA_COLLECTION: eclipse_tickets
+
+      DOC_SERVICE_URL: http://doc-service:8001
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+
+    depends_on:
+      - postgres
+
+    volumes:
+      - ./ticket-service/chroma_db:/app/chroma_db
+
+
+  doc-service:
+    build:
+      context: ./doc-service
+
+    container_name: doc-service
+
+    ports:
+      - "127.0.0.1:8001:8001"
+
+    environment:
+      TICKET_SERVICE_URL: http://ticket-service:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+    depends_on:
+      - ticket-service
+
+    volumes:
+      - ./doc-service/app/storage:/app/app/storage
+
+
+volumes:
+  postgres_data:

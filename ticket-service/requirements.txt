@@ -1,0 +1,15 @@
+pandas
+psycopg2-binary
+chromadb
+sentence-transformers
+python-dotenv
+fastapi
+bcrypt==4.0.1
+slowapi
+langchain-groq
+sqlalchemy
+alembic 
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pytest 

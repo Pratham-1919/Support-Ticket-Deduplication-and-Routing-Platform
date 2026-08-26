@@ -1,0 +1,23 @@
+# Virtual environments
+ticket-service/.venv/
+doc-service/venv/
+doc-service/.venv/
+
+# Environment secrets
+.env
+ticket-service/.env
+doc-service/.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Pytest
+.pytest_cache/
+
+# ML / local generated data if you don't want them in Git
+ticket-service/chroma_db/
+ticket-service/data/
+
+# Generated documents
+doc-service/app/storage/

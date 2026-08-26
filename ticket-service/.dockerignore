@@ -1,0 +1,30 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Test cache
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# Secrets
+.env
+
+# Large local data
+data/
+
+# ChromaDB is mounted separately
+chroma_db/
+
+# IDE
+.vscode/
+
+# Logs
+*.log
