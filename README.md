@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Support Ticket Deduplication and Routing Platform
 
 An AI-powered support ticket management platform for detecting duplicate tickets, classifying incoming tickets, routing tickets, supporting human review, generating ticket documents, answering questions over historical ticket data, and providing an agentic ticket analysis workflow.
