@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional
 from sqlalchemy.orm import Session
+from src.core.logging_config import logger
 
 from src.db.models import Module, Ticket, DuplicateLink
 from src.ml.similarity_search import search_similar_tickets
@@ -128,6 +129,11 @@ def create_ticket(db: Session, title, description, module=None, component=None,
 
     db.commit()
     db.refresh(new_ticket)
+    logger.info(
+        f"Ticket {new_ticket.id} created: decision={decision_info['decision']}, "
+        f"status={ticket_status}, module={module}, severity={severity}"
+    )
+    
 
     return {"ticket_id": new_ticket.id, "status": ticket_status, "module": module,
             "severity": severity, "needs_review_reasons": needs_review_reasons,

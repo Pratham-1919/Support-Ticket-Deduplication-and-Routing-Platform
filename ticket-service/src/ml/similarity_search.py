@@ -1,5 +1,6 @@
 # src/ml/similarity_search.py
 
+
 """
 Similarity Search for Support Tickets
 
@@ -33,6 +34,7 @@ Architecture:
 
 import os
 import sys
+from src.core.logging_config import logger
 
 import chromadb
 from dotenv import load_dotenv
@@ -308,7 +310,7 @@ def enrich_from_postgresql(candidates):
             else:
                 candidate["postgres"] = None
     except Exception as error:
-        print(f"WARNING: Could not enrich results from PostgreSQL.\nError: {error}")
+        logger.warning(f"WARNING: Could not enrich results from PostgreSQL.\nError: {error}")
         for candidate in candidates:
             candidate["postgres"] = None
     finally:

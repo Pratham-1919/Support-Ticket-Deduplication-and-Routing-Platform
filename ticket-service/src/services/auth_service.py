@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from src.db.models import User
 from src.core.security import hash_password, verify_password
+from src.core.logging_config import logger
 
 VALID_ROLES = {"admin", "support_engineer", "reporter"}
 
@@ -31,5 +32,6 @@ def create_user(db: Session, username, email, password, role="reporter"):
 def authenticate_user(db: Session, username, password):
     user = db.query(User).filter(User.username == username).first()
     if user is None or not verify_password(password, user.hashed_password):
+        logger.warning(f"Failed login attempt for username: {username}")
         return None
     return {"user_id": user.id, "username": user.username, "role": user.role}

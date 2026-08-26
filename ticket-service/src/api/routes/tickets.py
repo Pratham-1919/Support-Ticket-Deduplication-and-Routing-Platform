@@ -38,6 +38,7 @@ from src.core.security import (
 from src.api.schemas import CreateTicketRequest
 from src.services.ticket_service import create_ticket
 from src.core.rate_limit import limiter
+from src.core.logging_config import logger
 
 
 # ============================================================
@@ -579,18 +580,12 @@ def update_ticket_status(
 
             response.raise_for_status()
 
-            print(
-                f"Summary generated "
-                f"for ticket {ticket_id}"
-            )
+            logger.info(f"Summary generated for ticket {ticket_id}")
 
         except Exception as error:
 
-            print(
-                f"Warning: Failed to trigger "
-                f"document generation for "
-                f"ticket {ticket_id}: "
-                f"{error}"
+            logger.warning(
+                f"Failed to trigger document generation for ticket {ticket_id}: {error}"
             )
 
     return {

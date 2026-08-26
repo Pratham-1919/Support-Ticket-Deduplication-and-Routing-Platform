@@ -1,4 +1,3 @@
-
 # Support Ticket Deduplication and Routing Platform
 
 An AI-powered support ticket management platform for detecting duplicate tickets, classifying incoming tickets, routing tickets, supporting human review, generating ticket documents, answering questions over historical ticket data, and providing an agentic ticket analysis workflow.
@@ -595,7 +594,3 @@ Potential improvements include:
 - Dedicated production vector database deployment
 - Automated database backup and recovery
 - Improved agent observability
-=======
-# Support-Ticket-Deduplication-and-Routing-Platform
-Sculptsoft evaluation  task
->>>>>>> 1e4726cbecf0a6e219299e3a3ca7012addf2ff4c

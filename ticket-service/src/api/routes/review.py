@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, aliased
 from src.core.security import require_role
 from src.db.session import get_db
 from src.db.models import Ticket, Module, DuplicateLink
+from src.core.logging_config import logger
 
 
 router = APIRouter(
@@ -183,19 +184,12 @@ def confirm_duplicate(
 
         summary_generated = True
 
-        print(
-            f"Summary generated successfully "
-            f"for ticket {ticket_obj.id}"
-        )
+        logger.info(f"Summary generated successfully for ticket {ticket_obj.id}")
 
     except Exception as error:
         summary_error = str(error)
 
-        print(
-            f"Warning: Failed to generate summary "
-            f"for ticket {ticket_obj.id}: "
-            f"{error}"
-        )
+        logger.warning(f"Failed to generate summary for ticket {ticket_obj.id}: {error}")
 
     return {
         "duplicate_link_id": duplicate_link_id,

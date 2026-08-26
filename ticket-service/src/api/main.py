@@ -12,7 +12,8 @@ from src.services.ticket_service import (
     process_new_ticket,
 )
 
-
+from src.core.logging_config import setup_logging, logger
+setup_logging()
 
 
 
