@@ -1,7 +1,7 @@
 # Virtual environments
-ticket-service/.venv/
-doc-service/venv/
-doc-service/.venv/
+.venv/
+
+
 
 # Environment secrets
 .env

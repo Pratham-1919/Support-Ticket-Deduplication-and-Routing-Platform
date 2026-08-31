@@ -1,298 +1,105 @@
-# src/services/assistant_service.py
 
-from typing import Dict, Any
+from typing import TypedDict, Optional
+from langgraph.graph import StateGraph, END
 
 from src.services.ticket_service import process_new_ticket
-from src.ml.classification_service import (
-    predict_module,
-    predict_severity,
-)
-
-
-# ============================================================
-# Confidence thresholds
-# ============================================================
+from src.ml.classification_service import predict_module, predict_severity
 
 MODULE_CONFIDENCE_THRESHOLD = 0.60
 SEVERITY_CONFIDENCE_THRESHOLD = 0.60
 
 
-# ============================================================
-# Routing decision
-# ============================================================
-
-def build_routing_decision(
-    duplicate_result: Dict[str, Any],
-    module_result: Dict[str, Any],
-    severity_result: Dict[str, Any],
-) -> Dict[str, Any]:
-    """
-    Combine duplicate detection, module prediction,
-    severity prediction and confidence checks into one
-    final routing recommendation.
-    """
-
-    duplicate_decision = duplicate_result["decision"]
-
-    predicted_module = module_result["predicted_module"]
-    module_confidence = module_result["confidence"]
-
-    predicted_severity = severity_result["predicted_severity"]
-    severity_confidence = severity_result["confidence"]
-
-    review_reasons = []
-
-    # --------------------------------------------------------
-    # Classification confidence
-    # --------------------------------------------------------
-
-    if module_confidence < MODULE_CONFIDENCE_THRESHOLD:
-        review_reasons.append("low_confidence_module")
-
-    if severity_confidence < SEVERITY_CONFIDENCE_THRESHOLD:
-        review_reasons.append("low_confidence_severity")
-
-    # --------------------------------------------------------
-    # Duplicate handling
-    # --------------------------------------------------------
-
-    if duplicate_decision == "auto_duplicate":
-
-        return {
-            "routing_status": "closed_as_duplicate",
-            "route_to": "duplicate_handling",
-            "requires_human_review": False,
-            "review_reasons": review_reasons,
-            "recommendation": (
-                "The ticket is highly similar to an existing ticket "
-                "and should be treated as a duplicate."
-            ),
-        }
-
-    if duplicate_decision == "human_review":
-
-        review_reasons.append("possible_duplicate")
-
-        return {
-            "routing_status": "pending_review",
-            "route_to": "duplicate_review_queue",
-            "requires_human_review": True,
-            "review_reasons": review_reasons,
-            "recommendation": (
-                "Route the ticket to the duplicate review queue "
-                f"and associate it with the {predicted_module} module."
-            ),
-        }
-
-    # --------------------------------------------------------
-    # Classification uncertainty
-    # --------------------------------------------------------
-
-    if review_reasons:
-
-        return {
-            "routing_status": "pending_review",
-            "route_to": "classification_review_queue",
-            "requires_human_review": True,
-            "review_reasons": review_reasons,
-            "recommendation": (
-                "No strong duplicate was found, but classification "
-                "confidence is low. Send the ticket for classification "
-                "review before normal routing."
-            ),
-        }
-
-    # --------------------------------------------------------
-    # Normal new ticket
-    # --------------------------------------------------------
-
-    return {
-        "routing_status": "open",
-        "route_to": predicted_module,
-        "requires_human_review": False,
-        "review_reasons": [],
-        "recommendation": (
-            f"Route the ticket to the {predicted_module} module "
-            f"with severity {predicted_severity}."
-        ),
-    }
+class TicketAgentState(TypedDict):
+    title: str
+    description: str
+    dedup_result: Optional[dict]
+    module_prediction: Optional[dict]
+    severity_prediction: Optional[dict]
+    routing_decision: Optional[str]
+    explanation: Optional[str]
 
 
-# ============================================================
-# Explanation
-# ============================================================
+def dedup_node(state: TicketAgentState) -> TicketAgentState:
+    state["dedup_result"] = process_new_ticket(state["title"], state["description"])
+    return state
 
-def build_explanation(
-    duplicate_result: Dict[str, Any],
-    module_result: Dict[str, Any],
-    severity_result: Dict[str, Any],
-    routing_result: Dict[str, Any],
-) -> str:
-    """
-    Produce a concise human-readable explanation
-    of the agent's multi-step decision.
-    """
 
-    duplicate_decision = duplicate_result["decision"]
-    similarity_score = duplicate_result.get("similarity_score")
+def classify_module_node(state: TicketAgentState) -> TicketAgentState:
+    state["module_prediction"] = predict_module(state["title"], state["description"])
+    return state
 
-    predicted_module = module_result["predicted_module"]
-    module_confidence = module_result["confidence"]
 
-    predicted_severity = severity_result["predicted_severity"]
-    severity_confidence = severity_result["confidence"]
+def classify_severity_node(state: TicketAgentState) -> TicketAgentState:
+    state["severity_prediction"] = predict_severity(state["title"], state["description"])
+    return state
 
-    parts = []
 
-    # Duplicate explanation
-    if similarity_score is not None:
-        parts.append(
-            f"Duplicate analysis returned '{duplicate_decision}' "
-            f"with similarity score {similarity_score:.3f}."
-        )
+def decide_routing_node(state: TicketAgentState) -> TicketAgentState:
+    dedup = state["dedup_result"]
+
+    if dedup["decision"] == "auto_duplicate":
+        decision = "close_as_duplicate"
+        explanation = dedup["message"]
+    elif dedup["decision"] == "human_review":
+        decision = "hold_for_review"
+        explanation = dedup["message"]
     else:
-        parts.append(
-            f"Duplicate analysis returned '{duplicate_decision}'."
+        mod = state["module_prediction"]
+        sev = state["severity_prediction"]
+        if mod["confidence"] < MODULE_CONFIDENCE_THRESHOLD or sev["confidence"] < SEVERITY_CONFIDENCE_THRESHOLD:
+            decision = "hold_for_review"
+        else:
+            decision = "route_to_module"
+        explanation = (
+            f"{dedup['message']} Predicted module: {mod['predicted_module']} "
+            f"(confidence {mod['confidence']:.2f}). Predicted severity: "
+            f"{sev['predicted_severity']} (confidence {sev['confidence']:.2f})."
         )
 
-    # Module explanation
-    parts.append(
-        f"The predicted module is '{predicted_module}' "
-        f"with confidence {module_confidence:.3f}."
-    )
-
-    # Severity explanation
-    parts.append(
-        f"The predicted severity is '{predicted_severity}' "
-        f"with confidence {severity_confidence:.3f}."
-    )
-
-    # Final routing
-    parts.append(
-        routing_result["recommendation"]
-    )
-
-    return " ".join(parts)
+    state["routing_decision"] = decision
+    state["explanation"] = explanation
+    return state
 
 
-# ============================================================
-# Main agentic workflow
-# ============================================================
+def should_classify(state: TicketAgentState) -> str:
+    """Conditional branch: skip classification entirely if it's already an auto-duplicate."""
+    if state["dedup_result"]["decision"] == "auto_duplicate":
+        return "decide_routing"
+    return "classify_module"
 
-def process_ticket_agentically(
-    title: str,
-    description: str,
-) -> Dict[str, Any]:
-    """
-    Agentic workflow.
 
-    One user request triggers multiple steps automatically:
+# ---- Build the graph ----
+graph = StateGraph(TicketAgentState)
+graph.add_node("dedup_check", dedup_node)
+graph.add_node("classify_module", classify_module_node)
+graph.add_node("classify_severity", classify_severity_node)
+graph.add_node("decide_routing", decide_routing_node)
 
-        1. Duplicate detection
-        2. Module prediction
-        3. Severity prediction
-        4. Confidence evaluation
-        5. Routing decision
-        6. Explanation
+graph.set_entry_point("dedup_check")
+graph.add_conditional_edges(
+    "dedup_check", should_classify,
+    {"classify_module": "classify_module", "decide_routing": "decide_routing"},
+)
+graph.add_edge("classify_module", "classify_severity")
+graph.add_edge("classify_severity", "decide_routing")
+graph.add_edge("decide_routing", END)
 
-    This version is intentionally read-only:
-    it DOES NOT create/update/close tickets in PostgreSQL.
-    """
+compiled_graph = graph.compile()
 
-    title = title.strip()
-    description = description.strip()
 
-    if not title:
-        raise ValueError("Title cannot be empty.")
-
-    if not description:
-        raise ValueError("Description cannot be empty.")
-
-    # --------------------------------------------------------
-    # Step 1: Duplicate detection
-    # --------------------------------------------------------
-
-    duplicate_result = process_new_ticket(
-        title=title,
-        description=description,
-    )
-
-    # --------------------------------------------------------
-    # Step 2: Module classification
-    # --------------------------------------------------------
-
-    module_result = predict_module(
-        title,
-        description,
-    )
-
-    # --------------------------------------------------------
-    # Step 3: Severity classification
-    # --------------------------------------------------------
-
-    severity_result = predict_severity(
-        title,
-        description,
-    )
-
-    # --------------------------------------------------------
-    # Step 4 + 5: Confidence + routing
-    # --------------------------------------------------------
-
-    routing_result = build_routing_decision(
-        duplicate_result=duplicate_result,
-        module_result=module_result,
-        severity_result=severity_result,
-    )
-
-    # --------------------------------------------------------
-    # Step 6: Explanation
-    # --------------------------------------------------------
-
-    explanation = build_explanation(
-        duplicate_result=duplicate_result,
-        module_result=module_result,
-        severity_result=severity_result,
-        routing_result=routing_result,
-    )
-
-    # --------------------------------------------------------
-    # Final structured response
-    # --------------------------------------------------------
-
+def process_ticket_agentically(title: str, description: str) -> dict:
+    initial_state: TicketAgentState = {
+        "title": title, "description": description,
+        "dedup_result": None, "module_prediction": None,
+        "severity_prediction": None, "routing_decision": None, "explanation": None,
+    }
+    final_state = compiled_graph.invoke(initial_state)
     return {
-        "input": {
-            "title": title,
-            "description": description,
+        "steps": {
+            "1_duplicate_check": final_state["dedup_result"],
+            "2_module_prediction": final_state["module_prediction"],
+            "3_severity_prediction": final_state["severity_prediction"],
         },
-
-        "duplicate_analysis": {
-            "decision": duplicate_result["decision"],
-            "similarity_score": duplicate_result.get(
-                "similarity_score"
-            ),
-            "matched_ticket": duplicate_result.get(
-                "matched_ticket"
-            ),
-        },
-
-        "classification": {
-            "module": {
-                "predicted_module": module_result[
-                    "predicted_module"
-                ],
-                "confidence": module_result["confidence"],
-            },
-
-            "severity": {
-                "predicted_severity": severity_result[
-                    "predicted_severity"
-                ],
-                "confidence": severity_result["confidence"],
-            },
-        },
-
-        "routing": routing_result,
-
-        "explanation": explanation,
+        "routing_decision": final_state["routing_decision"],
+        "explanation": final_state["explanation"],
     }

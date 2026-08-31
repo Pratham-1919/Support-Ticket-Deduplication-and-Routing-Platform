@@ -16,7 +16,6 @@ load_dotenv()
 
 QA_TOP_K = 5
 
-# Start here and tune this after testing real questions.
 QA_RELEVANCE_THRESHOLD = 0.50
 
 
