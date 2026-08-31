@@ -26,8 +26,7 @@ def build_matched_ticket(best_match):
 def process_new_ticket(title: str, description: str,
                         module: Optional[str] = None,
                         component: Optional[str] = None):
-    # NOTE: unchanged -- this talks to ChromaDB + does its own Postgres
-    # enrichment inside search_similar_tickets, which we're leaving as-is.
+
     results = search_similar_tickets(title=title, description=description, top_k=5)
 
     if not results:

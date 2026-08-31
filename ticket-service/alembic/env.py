@@ -27,7 +27,7 @@ db_url = (
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option("sqlalchemy.url", db_url)
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -42,7 +42,10 @@ if config.config_file_name is not None:
 
 
 
-target_metadata = None
+from src.db.base import Base
+from src.db import models
+
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -94,6 +97,12 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name == "staging_tickets":
+        return False
+    return True
 
 
 if context.is_offline_mode():
