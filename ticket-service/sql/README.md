@@ -2,7 +2,7 @@
 
 These scripts were used once, manually, to perform the initial data 
 ingestion and schema creation for this project, before the schema was 
-migrated to Alembic-managed migrations (see `alembic/versions/`).
+migrated to Alembic-managed migrations
 
 They are NOT executed by the application or by any automated process.
 They are retained only as documentation of the original data pipeline:

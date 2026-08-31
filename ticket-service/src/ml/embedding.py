@@ -39,7 +39,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 # IMPORT POSTGRES CONNECTION
 # ============================================================
 
-from src.db.connection import get_connection
+# from src.db.connection import get_connection
 
 
 # ============================================================
@@ -371,7 +371,7 @@ def main():
 
         print("\nConnecting to PostgreSQL...")
 
-        connection = get_connection()
+        # connection = get_connection()
 
         print(
             "PostgreSQL connection successful."
